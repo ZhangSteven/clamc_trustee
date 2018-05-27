@@ -6,6 +6,7 @@
 
 from xlrd import open_workbook
 from functools import reduce
+from datetime import datetime
 import csv, re
 
 import logging
@@ -223,6 +224,88 @@ def sectionToRecords(lines):
 
 
 
+def patchHtmBondRecords(records):
+	"""
+	records: an iterable object on HTM bond records. On some portfolio,
+		there can be multiple records on the same HTM bond. Only the first
+		has a description and currency, the rest are empty.
+
+	output: a list of records with the following:
+
+	1. All records have their description and currency fields filled.
+	2. Multiple records on the same bond are consolidated into one.
+	"""
+	def groupRecord(groups, record):
+		if (record['description'] == ''):
+			groups[-1].append(record)
+		else:
+			groups.append([record])
+
+		return groups
+	# end of groupRecord
+
+	def groupToRecord(group):
+		"""
+		group: a list of records of the same bond.
+
+		output: a single record, consolidated from the group of records.
+		"""
+		headers = list(group[0].keys())
+
+		def toValueList(record):
+			valueList = []
+			for header in headers:
+				valueList.append(record[header])
+
+			return valueList
+		# end of toValueList
+
+		# say there are 3 records in the group, for each header, there are 
+		# 3 values. We then group them in a tuple as (v1, v2, v3). For all
+		# the headers, we form a list [(a1, a2, a3), (b1, b2, b3), ...],
+		# where (a1, a2, a3) for header a, (b1, b2, b3) for header b, etc.
+		valueTuples = list(zip(*list(map(toValueList, group))))
+
+		def groupWeight(quantTuple):
+			"""
+			quantTuple: as above
+
+			output: the weight of each record based on their quantity, as
+				a list.
+			"""
+			totalQuantity = reduce(lambda x,y: x+y, quantTuple, 0)
+			return list(map(lambda x: x/totalQuantity, quantTuple))
+		# end of groupWeight()
+
+		weights = groupWeight(valueTuples[headers.index('quantity')])
+
+		def weightedAverage(valueTuple):
+			return reduce(lambda x,y: x+y[0]*y[1], zip(weights, valueTuple), 0)
+			
+		def sumUp(valueTuple):
+			return reduce(lambda x,y: x+y, valueTuple, 0)
+
+		def takeFirst(valueTuple):
+			return valueTuple[0]
+
+		assert abs(sumUp(weights)-1) < 0.000001, 'invalid weights {0}'.format(weights)
+		record = {}
+		for (header, valueTuple) in zip(headers, valueTuples):
+			if header in ['maturity', 'coupon', 'interest start day',
+							'type', 'currency', 'accounting', 'description']:
+				record[header] = takeFirst(valueTuple)
+			elif header in ['average cost', 'amortized cost']:
+				record[header] = weightedAverage(valueTuple)
+			else:
+				record[header] = sumUp(valueTuple)
+
+		return record
+	# end of groupToRecord
+
+	return map(groupToRecord, reduce(groupRecord, records, []))
+
+
+
 def addIdentifier(record):
 	"""
 	record: a bond or equity position which has a 'description' field that
@@ -258,14 +341,15 @@ def modifyDates(record):
 	"""
 	record: a bond or record position which has fields that hold a date,
 		such as interest start day, maturity date, or trade day. But those
-		dates hold an Excel ordinal value like 43194.
+		dates hold an Excel ordinal value like 43194.0 (float).
 
 	output: the record with the date value changed to a string representation,
 		in the form of 'yyyy-mm-dd'
 	"""
 	def ordinalToDate(ordinal):
 		# from: https://stackoverflow.com/a/31359287
-		return datetime.fromordinal(datetime(1900, 1, 1).toordinal() + ordinal - 2)
+		return datetime.fromordinal(datetime(1900, 1, 1).toordinal() + 
+										int(ordinal) - 2)
 
 	def dateToString(dt):
 		return str(dt.year) + '-' + str(dt.month) + '-' + str(dt.day)
@@ -291,19 +375,19 @@ def recordsToRows(records):
 	"""
 	records = list(records)
 	headers = list(records[0].keys())
-	def mapRecordToValues(record):
+	def recordToValues(record):
 		values = []
 		for header in headers:
 			values.append(record[header])
 
 		return values
-	# end of mapRecordToValues
+	# end of recordToValues
 
 	def accumulateList(x, y):
 		x.append(y)
 		return x
 
-	return reduce(accumulateList, map(mapRecordToValues, records), [headers])
+	return reduce(accumulateList, map(recordToValues, records), [headers])
 
 
 
@@ -350,12 +434,25 @@ if __name__ == '__main__':
 
 	def writeSampleRecords():
 		"""
-		Write a 
+		Write HTM bond section to csv to see how it looks like.
 		"""
-		file = 'samples/00._Portfolio_Consolidation_Report_AFBH1 1804.xls'
+		file = 'samples/00._Portfolio_Consolidation_Report_CGFB 1804.xls'
 		sections = linesToSections(readFileToLines(file))
-		writeCsv('htm bond records.csv', recordsToRows(sectionToRecords(sections[5])))
+		writeCsv('htm bond records.csv', recordsToRows(sectionToRecords(sections[4])))
 	# end of writeSampleHolding()
 
 	writeSampleRecords()
 
+	def writeSampleRecordsWithMoreFields():
+		"""
+		Extract a sample HTM bond section, modify its date and extract its ISIN,
+		write to CSV to see how it works.
+		"""
+		file = 'samples/00._Portfolio_Consolidation_Report_AFBH1 1804.xls'
+		sections = linesToSections(readFileToLines(file))
+		records = sectionToRecords(sections[5])
+		records = map(modifyDates, map(addIdentifier, records))
+		writeCsv('htm bond records.csv', recordsToRows(records))
+	# end of writeSampleHolding()
+
+	# writeSampleRecordsWithMoreFields()
