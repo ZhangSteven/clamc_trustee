@@ -5,6 +5,7 @@
 #
 
 from xlrd import open_workbook
+from functools import reduce
 import csv, re
 
 import logging
@@ -12,16 +13,16 @@ logger = logging.getLogger(__name__)
 
 
 
-def readFileToList(fileName):
+def readFileToLines(fileName):
 	"""
 	fileName: the file path to the trustee excel file.
 	
-	output: return a list, each element itself being a list representing
-		a row in the holding page of the excel file.
+	output: a list of lines, each line represents a row in the holding 
+		page of the excel file.
 	"""
 	wb = open_workbook(filename=fileName)
 	ws = wb.sheet_by_index(0)
-	list = []
+	lines = []
 	row = 0
 	while row < ws.nrows:
 		thisRow = []
@@ -30,18 +31,18 @@ def readFileToList(fileName):
 			thisRow.append(ws.cell_value(row, column))
 			column = column + 1
 
-		list.append(thisRow)
+		lines.append(thisRow)
 		row = row + 1
 
-	return list
+	return lines
 
 
 
-def listToSections(list):
+def linesToSections(lines):
 	"""
-	list: a list of lines representing an excel file.
+	lines: a list of lines representing an excel file.
 
-	output: a list with each element bing a list containing rows of a 
+	output: a list of sections, each section being a list of lines in that
 		section.
 	"""
 	def notEmptyLine(line):
@@ -62,7 +63,7 @@ def listToSections(list):
 		IV. Debt Securities xxx
 		VIII. Accruals xxx
 		"""
-		if isinstance((line[0]), str) and re.match('[IVX]+\\.\\s+', line[0]):
+		if isinstance((line[0]), str) and re.match('[IVX]+\.\s+', line[0]):
 			return True
 		else:
 			return False
@@ -71,7 +72,7 @@ def listToSections(list):
 
 	sections = []
 	tempSection = []
-	for line in filter(notEmptyLine, list):
+	for line in filter(notEmptyLine, lines):
 		if not startOfSection(line):
 			tempSection.append(line)
 		else:
@@ -82,11 +83,12 @@ def listToSections(list):
 
 
 
-def sectionToRecords(list):
+def sectionToRecords(lines):
 	"""
-	list: a list of lines representing the section
+	lines: a list of lines representing the section
 
-	output: a list of records in the section.
+	output: a list of position records in the section. Each record is a
+		dictionary object containing header: value pairs.
 	"""
 	def sectionInfo(line):
 		"""
@@ -100,62 +102,215 @@ def sectionToRecords(list):
 		"""
 		sectionType = ''
 		accounting = ''
-		if (re.search('\sCash\s')):
+		if (re.search('\sCash\s', line[0])):
 			sectionType = 'cash'
-		elif (re.search('\sDebt Securities\s')):
+		elif (re.search('\sDebt Securities\s', line[0])):
 			sectionType = 'bond'
-		elif (re.search('\sEquities\s')):
+		elif (re.search('\sEquities\s', line[0])):
 			sectionType = 'equity'
 
-		if (re.search('\sHeld for Trading')):
+		if (re.search('\sHeld for Trading', line[0])):
 			accounting = 'trading'
-		elif (re.search('\sAvailable for Sales')):
+		elif (re.search('\sAvailable for Sales', line[0])):
 			accounting = 'afs'
-		elif (re.search('\sHeld for Maturity')):
+		elif (re.search('\sHeld for Maturity', line[0])):
 			accounting = 'htm'
 
 		return sectionType, accounting
+	# end of sectionInfo()
 
-	def sectionHeaders(line1, line2=[]):
+	def sectionHeaders(line1, line2, line3):
 		"""
-		line1, line2: the two lines in the section that hold the field names
+		line1, line2, line3: the three lines that hold the field names
 			of the holdings. They are assumed to be of equal length.
 
 		output: a list of headers that map the field names containing 
 			Chinese character, %, English letters to easy to understand
 			header names.
 		"""
-		line = []
-		if line2 == []:
-			line = line1
-		else:
-			for i in range(len(line1)):
-				line.append(line1[i].strip() + ' ' + line2[i].strip())
+		def mapFieldName(fieldNameTuple):
+			return reduce(lambda x,y : (x+' '+y).strip(), fieldNameTuple)
 
-		headers = []
 		headerMap = {
-			
+			'': '',
+			'項目 Description': 'description',
+			'幣值 CCY': 'currency',
+			'票面值 Par Amt': 'quantity',
+			'利率 Interest Rate%': 'coupon',
+			'Interest Start Day': 'interest start day',
+			'到期日 Maturity': 'maturity',
+			'平均成本 Avg Cost': 'average cost',
+			'修正價 Amortized Price': 'amortized cost',
+			'成本 Cost': 'total cost',
+			'應收利息 Accr. Int.': 'accrued interest',
+			'Total Amortized Value': 'total amortized cost',
+			'P/L A. Value': 'total amortized gain loss',
+			'成本 Cost HKD': 'total cost HKD',
+			'應收利息 Acc. Int. HKD': 'accrued interest HKD',
+			'總攤銷值 Total A. Value HKD': 'total amortized cost HKD',
+			'盈/虧-攤銷值 P/L A. Value HKD': 'total amortized gain loss HKD',
+			'盈/虧-匯率 P/L FX HKD': 'FX gain loss HKD',
+			'百份比 % of Fund': 'percentage of fund'
 		}
-		for item in filter(lambda x: x != ' ', line):
-			if (re.search('Description')):
-				headers.append('description')
-			elif (re.search('CCY')):
-				headers.append('currency')
-			else:
-				try:
-					headers.append(headerMap[item])
-				except KeyError:
-					logger.error('invalid field name {0}'.format(item))
-					raise
+
+		def mapFieldNameToHeader(fieldName):
+			try:
+				return headerMap[fieldName]
+			except KeyError:
+				logger.error('invalid field name \'{0}\''.format(fieldName))
+				raise
+		# end of mapFieldNameToHeader
+
+		fieldNames = map(mapFieldName, zip(line1, line2, line3))
+
+		"""
+		Note: We must convert the headers (map object) to a list before 
+		returning it.
+		
+		As we need to iterate through the headers multiple times, without
+		the conversion, the headers will behave like an empty list because
+		a generator (map object) can only be iterate through once.
+		"""
+		return list(map(mapFieldNameToHeader, fieldNames))
+	# end of sectionHeaders()
+
+	def findHeaderRowIndex(lines):
+		"""
+		lines: a list of lines representing the section
+
+		output: the index of the line in the lines that contain header 
+			'Description'.
+		"""
+		i = 0
+		while (not lines[i][0].startswith('Description')):
+			i = i + 1
+
+		return i
+	# end of findHeaderRowIndex()
+
+	def sectionRecords(headers, lines):
+		"""
+		headers: the list of headers
+		lines: the list of lines in the section containing the holding
+			records. Note the line representing summary of records (i.e., 
+			totals) is not included.
+
+		output: a list of records, each being a dictionary holding a position
+			record.
+		"""
+		def lineToRecord(line):
+			headerValuePairs = filter(lambda x: x[0] != '', zip(headers, line))
+			def tupleToDictionary(r, t):
+				r[t[0]] = t[1]
+				return r
+
+			return reduce(tupleToDictionary, headerValuePairs, {})
+		# end of lineToRecord()
+
+		return map(lineToRecord, lines)
+	# end of sectionRecords()
+
+	sectionType, accounting = sectionInfo(lines[0])
+	i = findHeaderRowIndex(lines)
+	headers = sectionHeaders(lines[i-2], lines[i-1], lines[i])
+
+	def addSectionInfo(record):
+		record['type'] = sectionType
+		record['accounting'] = accounting
+		return record
+
+	return map(addSectionInfo, sectionRecords(headers, lines[i+1:-1]))
 
 
 
+def addIdentifier(record):
+	"""
+	record: a bond or equity position which has a 'description' field that
+	holds its identifier. 
+
+	output: the record, with an isin or ticker field added.
+	"""
+	identifier = record['description'].split()[0]
+	
+	# some bond identifiers are not ISIN, we then map them to ISIN
+	bondIsinMap = {
+		# FIXME: put in the real ISIN
+		'DBANFB12014': 'xxx',
+		'HSBCFN13014': 'yyy'
+	}
+	if record['type'] == 'bond':
+		try:
+			identifier = bondIsinMap[identifier]
+		except KeyError:
+			pass	# no change
+
+		record['isin'] = identifier
+
+	elif record['type'] == 'equity':
+		# FIXME: US equity ticker is not real ticker 
+		record['ticker'] = identifier
+
+	return record
+
+	
+
+def modifyDates(record):
+	"""
+	record: a bond or record position which has fields that hold a date,
+		such as interest start day, maturity date, or trade day. But those
+		dates hold an Excel ordinal value like 43194.
+
+	output: the record with the date value changed to a string representation,
+		in the form of 'yyyy-mm-dd'
+	"""
+	def ordinalToDate(ordinal):
+		# from: https://stackoverflow.com/a/31359287
+		return datetime.fromordinal(datetime(1900, 1, 1).toordinal() + ordinal - 2)
+
+	def dateToString(dt):
+		return str(dt.year) + '-' + str(dt.month) + '-' + str(dt.day)
+
+	for header in ['interest start day', 'maturity', 'last trade day']:
+		try:
+			record[header] = dateToString(ordinalToDate(record[header]))
+		except KeyError:
+			pass
+
+	return record
 
 
-def writeCsv(list):
-	with open('filelist.csv', 'w', newline='') as csvfile:
+
+def recordsToRows(records):
+	"""
+	records: records with the same set of fields, such as HTM bonds, or
+		AFS bonds, equitys, cash entries.
+	
+	output: an iterable object on the rows ready to be written to csv,
+		with the first row being the field names, the remaining being
+		the record values.
+	"""
+	records = list(records)
+	headers = list(records[0].keys())
+	def mapRecordToValues(record):
+		values = []
+		for header in headers:
+			values.append(record[header])
+
+		return values
+	# end of mapRecordToValues
+
+	def accumulateList(x, y):
+		x.append(y)
+		return x
+
+	return reduce(accumulateList, map(mapRecordToValues, records), [headers])
+
+
+
+def writeCsv(fileName, rows):
+	with open(fileName, 'w', newline='') as csvfile:
 		file_writer = csv.writer(csvfile)
-		for row in list:
+		for row in rows:
 			file_writer.writerow(row)
 
 
@@ -164,8 +319,43 @@ def writeCsv(list):
 if __name__ == '__main__':
 	import logging.config
 	logging.config.fileConfig('logging.config', disable_existing_loggers=False)
-	file = 'samples/00._Portfolio_Consolidation_Report_AFBH1 1804.xls'
-	# writeCsv(readFileToList(file))
 
-	sections = listToSections(readFileToList(file))
-	writeCsv(sections[5])
+	def writeSampleSection():
+		"""
+		Write some sample sections to csv file. This helps to understand 
+		how lines in a section look like.
+
+		"bond section1.csv": HTM bond holding section
+		"bond section2.csv": HTM bond holding section, but some lines' 
+			description and currency fields are empty.
+		"equity section hk.csv": HK equity holding section
+		"equity section us.csv": US equity holding section, but the description
+			does not contain a standard ticker.
+		"""
+		file = 'samples/00._Portfolio_Consolidation_Report_AFBH1 1804.xls'
+		sections = linesToSections(readFileToLines(file))
+		writeCsv('bond section1.csv', sections[5])
+
+		file = 'samples/00._Portfolio_Consolidation_Report_CGFB 1804.xls'
+		sections = linesToSections(readFileToLines(file))
+		writeCsv('bond section2.csv', sections[4])
+
+		file = 'samples/00._Portfolio_Consolidation_Report_AFEH5 1804.xls'
+		sections = linesToSections(readFileToLines(file))
+		writeCsv('equity section hk.csv', sections[4])
+		writeCsv('equity section us.csv', sections[6])
+	# end of writeSampleSection()
+
+	# writeSampleSection()
+
+	def writeSampleRecords():
+		"""
+		Write a 
+		"""
+		file = 'samples/00._Portfolio_Consolidation_Report_AFBH1 1804.xls'
+		sections = linesToSections(readFileToLines(file))
+		writeCsv('htm bond records.csv', recordsToRows(sectionToRecords(sections[5])))
+	# end of writeSampleHolding()
+
+	writeSampleRecords()
+
