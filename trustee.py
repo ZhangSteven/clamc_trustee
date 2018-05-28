@@ -14,6 +14,27 @@ logger = logging.getLogger(__name__)
 
 
 
+def readFileToRecords(fileName):
+	"""
+	fileName: the file path to the trustee excel file.
+
+	output: a list object, containing records (dictionary object) of
+		cash and holding in this file.
+	"""
+	sections = linesToSections(readFileToLines(fileName))
+	# valuationDate, portfolioId = fileInfo(sections[0])
+	totalRecords = []
+	for i in range(1, len(sections)):
+		records = sectionToRecords(sections[i])
+		if (records[0]['type'] == 'bond' and records[0]['accounting'] == 'htm'):
+			records = patchHtmBondRecords(records)
+		
+		totalRecords = totalRecords + records
+	
+	return totalRecords
+
+
+
 def readFileToLines(fileName):
 	"""
 	fileName: the file path to the trustee excel file.
@@ -29,7 +50,10 @@ def readFileToLines(fileName):
 		thisRow = []
 		column = 0
 		while column < ws.ncols:
-			thisRow.append(ws.cell_value(row, column))
+			cellValue = ws.cell_value(row, column)
+			if isinstance(cellValue, str):
+				cellValue = cellValue.replace('\n', ' ')
+			thisRow.append(cellValue)
 			column = column + 1
 
 		lines.append(thisRow)
@@ -132,6 +156,8 @@ def sectionToRecords(lines):
 
 		headerMap = {
 			'': '',
+
+			# for HTM bond
 			'項目 Description': 'description',
 			'幣值 CCY': 'currency',
 			'票面值 Par Amt': 'quantity',
@@ -149,7 +175,29 @@ def sectionToRecords(lines):
 			'總攤銷值 Total A. Value HKD': 'total amortized cost HKD',
 			'盈/虧-攤銷值 P/L A. Value HKD': 'total amortized gain loss HKD',
 			'盈/虧-匯率 P/L FX HKD': 'FX gain loss HKD',
-			'百份比 % of Fund': 'percentage of fund'
+			'百分比 % of Fund': 'percentage of fund',
+			'百份比 % of Fund': 'percentage of fund',
+
+			# for AFS bond
+			'市場現價 Market Price': 'market price',
+			'Total Mkt Value': 'total market value',
+			'P/L M. Value': 'market value gain loss',
+			'總市值 Total Mkt Value HKD': 'total market value HKD',
+			'盈/虧-市值 P/L M. Value HKD': 'market value gain loss HKD',
+
+			# for equity
+			'股數 Share': 'quantity',
+			'最近交易日 Latest T. D.': 'last trade day',
+			'成本價 Cost': 'total cost',
+			'應收紅利 Acc. Dividend': 'accrued dividend',
+			'Total M. Value': 'total market value',
+			'應收紅利 Acc. Dividend HKD': 'accrued dividend HKD',
+
+			# for cash
+			'項目 & 戶口號碼 Description & Account No.': 'description',
+			'Avg FX Rate': 'average FX rate',
+			'貨幣匯率 Ex Rate': 'portfolio FX rate',
+			'盈/虧-匯率 P/L FX HKD Equiv.': 'FX gain loss HKD'
 		}
 
 		def mapFieldNameToHeader(fieldName):
@@ -392,55 +440,47 @@ if __name__ == '__main__':
 	import logging.config
 	logging.config.fileConfig('logging.config', disable_existing_loggers=False)
 
-	def writeSampleSection():
-		"""
-		Write some sample sections to csv file. This helps to understand 
-		how lines in a section look like.
-
-		"bond section1.csv": HTM bond holding section
-		"bond section2.csv": HTM bond holding section, but some lines' 
-			description and currency fields are empty.
-		"equity section hk.csv": HK equity holding section
-		"equity section us.csv": US equity holding section, but the description
-			does not contain a standard ticker.
-		"""
+	def writeRecords():
 		file = 'samples/00._Portfolio_Consolidation_Report_AFBH1 1804.xls'
-		sections = linesToSections(readFileToLines(file))
-		writeCsv('bond section1.csv', sections[5])
+		records = readFileToRecords(file)
 
-		file = 'samples/00._Portfolio_Consolidation_Report_CGFB 1804.xls'
-		sections = linesToSections(readFileToLines(file))
-		writeCsv('bond section2.csv', sections[4])
+		def cashOnly(record):
+			if record['type'] == 'cash':
+				return True
+			else:
+				return False
 
+		writeCsv('cash.csv', recordsToRows(list(filter(cashOnly, records))))
+
+		def HtmBondOnly(record):
+			if record['type'] == 'bond' and record['accounting'] == 'htm':
+				return True
+			return False
+
+		writeCsv('bond.csv', recordsToRows(list(filter(HtmBondOnly, records))))
+	# end of writeRecords()
+	writeRecords()
+
+
+	def writeRecords2():
 		file = 'samples/00._Portfolio_Consolidation_Report_AFEH5 1804.xls'
-		sections = linesToSections(readFileToLines(file))
-		writeCsv('equity section hk.csv', sections[4])
-		writeCsv('equity section us.csv', sections[6])
-	# end of writeSampleSection()
-	writeSampleSection()
+		records = readFileToRecords(file)
 
-	def writeSampleRecords():
-		"""
-		Write HTM bond section to csv to see how it looks like.
-		"""
-		file = 'samples/00._Portfolio_Consolidation_Report_CGFB 1804.xls'
-		sections = linesToSections(readFileToLines(file))
-		records = sectionToRecords(sections[4])
-		rows = recordsToRows(records)
-		writeCsv('htm bond records.csv', rows)
-	# end of writeSampleHolding()
-	writeSampleRecords()
+		def cashOnly(record):
+			if record['type'] == 'cash':
+				return True
+			else:
+				return False
 
-	def writeSampleHtmBondRecords():
-		"""
-		Extract a HTM bond section, patch it (fill in missing description 
-		and currency), consolidate it, see how it works.
-		"""
-		file = 'samples/00._Portfolio_Consolidation_Report_CGFB 1804.xls'
-		sections = linesToSections(readFileToLines(file))
-		records = sectionToRecords(sections[4])
-		records = patchHtmBondRecords(records)
-		rows = recordsToRows(list(map(modifyDates, map(addIdentifier, records))))
-		writeCsv('htm bond records patched.csv', rows)
-	# end of writeSampleHtmBondRecords()
-	writeSampleHtmBondRecords()
+		writeCsv('cash2.csv', recordsToRows(list(filter(cashOnly, records))))
+
+		def equityOnly(record):
+			if record['type'] == 'equity':
+				return True
+			return False
+
+		writeCsv('equity.csv', recordsToRows(list(filter(equityOnly, records))))
+	# end of writeRecords()
+	writeRecords2()
+
+
