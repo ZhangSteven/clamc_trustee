@@ -68,8 +68,7 @@ def linesToSections(lines):
 			return True
 		else:
 			return False
-
-
+	# end of startOfSection()
 
 	sections = []
 	tempSection = []
@@ -88,8 +87,7 @@ def sectionToRecords(lines):
 	"""
 	lines: a list of lines representing the section
 
-	output: a list of position records in the section. Each record is a
-		dictionary object containing header: value pairs.
+	output: a list of position records (dictionary objects) in the section.
 	"""
 	def sectionInfo(line):
 		"""
@@ -201,12 +199,7 @@ def sectionToRecords(lines):
 		"""
 		def lineToRecord(line):
 			headerValuePairs = filter(lambda x: x[0] != '', zip(headers, line))
-			def tupleToDictionary(r, t):
-				r[t[0]] = t[1]
-				return r
-
-			return reduce(tupleToDictionary, headerValuePairs, {})
-		# end of lineToRecord()
+			return {key: value for (key, value) in headerValuePairs}
 
 		return map(lineToRecord, lines)
 	# end of sectionRecords()
@@ -220,89 +213,93 @@ def sectionToRecords(lines):
 		record['accounting'] = accounting
 		return record
 
-	return map(addSectionInfo, sectionRecords(headers, lines[i+1:-1]))
+	return list(map(addSectionInfo, sectionRecords(headers, lines[i+1:-1])))
 
 
 
 def patchHtmBondRecords(records):
 	"""
-	records: an iterable object on HTM bond records. On some portfolio,
-		there can be multiple records on the same HTM bond. Only the first
-		has a description and currency, the rest are empty.
+	records: a list of HTM bond records. On some portfolio, there are 
+		multiple records of the same HTM bond. Only the first one has
+		description and currency fields filled, the rest have these two
+		fields empty.
 
-	output: a list of records with the following:
+	output: a list of records where:
 
-	1. All records have their description and currency fields filled.
+	1. All have their description and currency fields filled.
 	2. Multiple records on the same bond are consolidated into one.
 	"""
-	def groupRecord(groups, record):
+	def recordsToGroups(groups, record):
+		"""
+		Divided the records into sub groups, each group containing records
+		of the same bond.
+		"""
 		if (record['description'] == ''):
 			groups[-1].append(record)
 		else:
 			groups.append([record])
 
 		return groups
-	# end of groupRecord
+	# end of recordsToGroups()
 
-	def groupToRecord(group):
+	return list(map(groupToRecord, reduce(recordsToGroups, records, [])))
+
+
+
+def groupToRecord(group):
+	"""
+	group: a list of records of the same bond.
+
+	output: a single record, consolidated from the group of records.
+	"""
+	if (len(group) == 1):
+		return group[0]
+
+	headers = list(group[0].keys())
+	def toValueList(record):
+		return [record[header] for header in headers]
+
+	# say there are 3 records in the group, for each header, there are 
+	# 3 values. we group them as a tuple (v1, v2, v3). For all the headers, 
+	# we form a list [(a1, a2, a3), (b1, b2, b3), ...], where (a1, a2, a3) 
+	# for header a, (b1, b2, b3) for header b, etc.
+	valueTuples = list(zip(*map(toValueList, group)))
+
+	def groupWeight(quantTuple):
 		"""
-		group: a list of records of the same bond.
+		quantTuple: the tuple containing quantities of each record in
+			the group.
 
-		output: a single record, consolidated from the group of records.
+		output: the weight of each record based on their quantity, as
+			a list.
 		"""
-		headers = list(group[0].keys())
+		totalQuantity = reduce(lambda x,y: x+y, quantTuple, 0)
+		return list(map(lambda x: x/totalQuantity, quantTuple))
+	# end of groupWeight()
 
-		def toValueList(record):
-			valueList = []
-			for header in headers:
-				valueList.append(record[header])
+	weights = groupWeight(valueTuples[headers.index('quantity')])
 
-			return valueList
-		# end of toValueList
+	def weightedAverage(valueTuple):
+		return reduce(lambda x,y: x+y[0]*y[1], zip(weights, valueTuple), 0)
+		
+	def sumUp(valueTuple):
+		return reduce(lambda x,y: x+y, valueTuple, 0)
 
-		# say there are 3 records in the group, for each header, there are 
-		# 3 values. We then group them in a tuple as (v1, v2, v3). For all
-		# the headers, we form a list [(a1, a2, a3), (b1, b2, b3), ...],
-		# where (a1, a2, a3) for header a, (b1, b2, b3) for header b, etc.
-		valueTuples = list(zip(*list(map(toValueList, group))))
+	def takeFirst(valueTuple):
+		return valueTuple[0]
 
-		def groupWeight(quantTuple):
-			"""
-			quantTuple: as above
+	assert abs(sumUp(weights)-1) < 0.000001, 'invalid weights {0}'.format(weights)
+	record = {}
+	for (header, valueTuple) in zip(headers, valueTuples):
+		if header in ['maturity', 'coupon', 'interest start day',
+						'type', 'currency', 'accounting', 'description']:
+			record[header] = takeFirst(valueTuple)
+		elif header in ['average cost', 'amortized cost']:
+			record[header] = weightedAverage(valueTuple)
+		else:
+			record[header] = sumUp(valueTuple)
 
-			output: the weight of each record based on their quantity, as
-				a list.
-			"""
-			totalQuantity = reduce(lambda x,y: x+y, quantTuple, 0)
-			return list(map(lambda x: x/totalQuantity, quantTuple))
-		# end of groupWeight()
-
-		weights = groupWeight(valueTuples[headers.index('quantity')])
-
-		def weightedAverage(valueTuple):
-			return reduce(lambda x,y: x+y[0]*y[1], zip(weights, valueTuple), 0)
-			
-		def sumUp(valueTuple):
-			return reduce(lambda x,y: x+y, valueTuple, 0)
-
-		def takeFirst(valueTuple):
-			return valueTuple[0]
-
-		assert abs(sumUp(weights)-1) < 0.000001, 'invalid weights {0}'.format(weights)
-		record = {}
-		for (header, valueTuple) in zip(headers, valueTuples):
-			if header in ['maturity', 'coupon', 'interest start day',
-							'type', 'currency', 'accounting', 'description']:
-				record[header] = takeFirst(valueTuple)
-			elif header in ['average cost', 'amortized cost']:
-				record[header] = weightedAverage(valueTuple)
-			else:
-				record[header] = sumUp(valueTuple)
-
-		return record
-	# end of groupToRecord
-
-	return map(groupToRecord, reduce(groupRecord, records, []))
+	return record
 
 
 
@@ -317,9 +314,8 @@ def addIdentifier(record):
 	
 	# some bond identifiers are not ISIN, we then map them to ISIN
 	bondIsinMap = {
-		# FIXME: put in the real ISIN
-		'DBANFB12014': 'xxx',
-		'HSBCFN13014': 'yyy'
+		'DBANFB12014':'HK0000175916',	# Dragon Days Ltd 6% 03/21/22
+		'HSBCFN13014':'HK0000163607'	# New World Development 6% Sept 2023
 	}
 	if record['type'] == 'bond':
 		try:
@@ -366,28 +362,20 @@ def modifyDates(record):
 
 def recordsToRows(records):
 	"""
-	records: records with the same set of fields, such as HTM bonds, or
-		AFS bonds, equitys, cash entries.
+	records: a list of position records with the same set of headers, 
+		such as HTM bonds, or AFS bonds, equitys, cash entries.
+
+	headers: the headers of the records
 	
-	output: an iterable object on the rows ready to be written to csv,
-		with the first row being the field names, the remaining being
-		the record values.
+	output: a list of rows ready to be written to csv, with the first
+		row being headers, the rest being values from each record.
+		headers.
 	"""
-	records = list(records)
 	headers = list(records[0].keys())
 	def recordToValues(record):
-		values = []
-		for header in headers:
-			values.append(record[header])
+		return [record[header] for header in headers]
 
-		return values
-	# end of recordToValues
-
-	def accumulateList(x, y):
-		x.append(y)
-		return x
-
-	return reduce(accumulateList, map(recordToValues, records), [headers])
+	return [headers] + list(map(recordToValues, records))
 
 
 
@@ -429,8 +417,7 @@ if __name__ == '__main__':
 		writeCsv('equity section hk.csv', sections[4])
 		writeCsv('equity section us.csv', sections[6])
 	# end of writeSampleSection()
-
-	# writeSampleSection()
+	writeSampleSection()
 
 	def writeSampleRecords():
 		"""
@@ -438,21 +425,22 @@ if __name__ == '__main__':
 		"""
 		file = 'samples/00._Portfolio_Consolidation_Report_CGFB 1804.xls'
 		sections = linesToSections(readFileToLines(file))
-		writeCsv('htm bond records.csv', recordsToRows(sectionToRecords(sections[4])))
+		records = sectionToRecords(sections[4])
+		rows = recordsToRows(records)
+		writeCsv('htm bond records.csv', rows)
 	# end of writeSampleHolding()
-
 	writeSampleRecords()
 
-	def writeSampleRecordsWithMoreFields():
+	def writeSampleHtmBondRecords():
 		"""
-		Extract a sample HTM bond section, modify its date and extract its ISIN,
-		write to CSV to see how it works.
+		Extract a HTM bond section, patch it (fill in missing description 
+		and currency), consolidate it, see how it works.
 		"""
-		file = 'samples/00._Portfolio_Consolidation_Report_AFBH1 1804.xls'
+		file = 'samples/00._Portfolio_Consolidation_Report_CGFB 1804.xls'
 		sections = linesToSections(readFileToLines(file))
-		records = sectionToRecords(sections[5])
-		records = map(modifyDates, map(addIdentifier, records))
-		writeCsv('htm bond records.csv', recordsToRows(records))
-	# end of writeSampleHolding()
-
-	# writeSampleRecordsWithMoreFields()
+		records = sectionToRecords(sections[4])
+		records = patchHtmBondRecords(records)
+		rows = recordsToRows(list(map(modifyDates, map(addIdentifier, records))))
+		writeCsv('htm bond records patched.csv', rows)
+	# end of writeSampleHtmBondRecords()
+	writeSampleHtmBondRecords()
