@@ -20,6 +20,10 @@ def readFileToRecords(fileName):
 
 	output: a list object, containing records (dictionary object) of
 		cash and holding in this file.
+
+	To do:
+		1. read first section to retrive portfolio info.
+		2. add portfolio info to records.
 	"""
 	sections = linesToSections(readFileToLines(fileName))
 	# valuationDate, portfolioId = fileInfo(sections[0])
@@ -28,7 +32,9 @@ def readFileToRecords(fileName):
 		records = sectionToRecords(sections[i])
 		if (records[0]['type'] == 'bond' and records[0]['accounting'] == 'htm'):
 			records = patchHtmBondRecords(records)
-		
+		if (records[0]['type'] == 'bond' or records[0]['type'] == 'equity'):
+			records = list(map(modifyDates, map(addIdentifier, records)))
+
 		totalRecords = totalRecords + records
 	
 	return totalRecords

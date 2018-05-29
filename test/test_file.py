@@ -1,45 +1,47 @@
 # coding=utf-8
 # 
-# Read one file, extract a HTM bond section, test how it works.
 
 import unittest2, os
 from clamc_trustee.utility import get_current_path
-from clamc_trustee.trustee import readFileToLines, linesToSections, \
-                                    sectionToRecords, patchHtmBondRecords, \
-                                    modifyDates, addIdentifier
+from clamc_trustee.trustee import readFileToRecords
+
+
+
+def htmBond(record):
+    if (record['type'], record['accounting']) == ('bond', 'htm'):
+        return True
+    return False
 
 
 
 class TestHTM(unittest2.TestCase):
+    """
+    Read records from one file only.
+    """
 
     def __init__(self, *args, **kwargs):
         super(TestHTM, self).__init__(*args, **kwargs)
 
 
-
     def testHtmBond1(self):
         file = os.path.join(get_current_path(), 'samples', 
                     '00._Portfolio_Consolidation_Report_CGFB 1804.xls')
-        sections = linesToSections(readFileToLines(file))
-        records = sectionToRecords(sections[4])
-        records = patchHtmBondRecords(records)
-        records = list(map(modifyDates, map(addIdentifier, records)))
-        self.assertEqual(len(records), 18)
-        self.verifyBond1(records[0])
-        self.verifyBond2(records[2])
+        records = readFileToRecords(file)
+        records = list(filter(htmBond, records))
+        self.assertEqual(len(records), 20)
+        self.verifyBond1(records[2])
+        self.verifyBond2(records[4])
 
 
 
     def testHtmBond2(self):
         file = os.path.join(get_current_path(), 'samples', 
                     '00._Portfolio_Consolidation_Report_AFBH1 1804.xls')
-        sections = linesToSections(readFileToLines(file))
-        records = sectionToRecords(sections[5])
-        records = patchHtmBondRecords(records)
-        records = list(map(modifyDates, map(addIdentifier, records)))
-        self.assertEqual(len(records), 6)
-        self.verifyBond3(records[0])
-        self.verifyBond4(records[5])
+        records = readFileToRecords(file)
+        records = list(filter(htmBond, records))
+        self.assertEqual(len(records), 70)
+        self.verifyBond3(records[1])
+        self.verifyBond4(records[6])
 
 
 
