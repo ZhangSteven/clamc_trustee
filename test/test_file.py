@@ -14,6 +14,13 @@ def htmBond(record):
 
 
 
+def equityOnly(record):
+	if record['type'] == 'equity':
+		return True
+	return False
+
+
+
 class TestHTM(unittest2.TestCase):
     """
     Read records from one file only.
@@ -42,6 +49,17 @@ class TestHTM(unittest2.TestCase):
         self.assertEqual(len(records), 70)
         self.verifyBond3(records[1])
         self.verifyBond4(records[6])
+
+
+
+    def testEquity(self):
+        file = os.path.join(get_current_path(), 'samples', 
+                    '00._Portfolio_Consolidation_Report_AFEH5 1804.xls')
+        records = readFileToRecords(file)
+        records = list(filter(equityOnly, records))
+        self.assertEqual(len(records), 35)
+        self.verifyEquity1(records[0])
+        self.verifyEquity2(records[28])
 
 
 
@@ -131,3 +149,34 @@ class TestHTM(unittest2.TestCase):
         self.assertAlmostEqual(0, record['total amortized gain loss HKD'])
         self.assertAlmostEqual(0, record['FX gain loss HKD'])
         self.assertAlmostEqual(0.0262, record['percentage of fund'], 6)
+
+
+
+    def verifyEquity1(self, record):
+        """
+        Frist equity in 
+        samples/00._Portfolio_Consolidation_Report_AFEH5 1804.xls
+        """
+        self.assertEqual('11490', record['portfolio'])
+        self.assertEqual('00388.HK', record['ticker'])
+        self.assertEqual('HKD', record['currency'])
+        self.assertEqual(60200, record['quantity'])
+        self.assertEqual('2018-4-25', record['last trade day'])
+        self.assertAlmostEqual(253.693, record['average cost'], 4)
+        self.assertAlmostEqual(257.2, record['market price'], 4)
+        self.assertEqual(15272318.7, record['total cost'])
+        self.assertEqual(171570, record['accrued dividend'])
+
+
+
+    def verifyEquity2(self, record):
+    	"""
+    	The only HKD equity in held for trading section.
+    	samples/00._Portfolio_Consolidation_Report_AFEH5 1804.xls
+    	"""
+    	self.assertEqual('2018-04-30', record['valuation date'])
+    	self.assertEqual('00899.HK', record['ticker'])
+    	self.assertEqual('HKD', record['currency'])
+    	self.assertEqual(267580, record['total market value'])
+    	self.assertEqual(-105228546.41, record['market value gain loss'], 4)
+    	self.assertEqual(0.0001, record['percentage of fund'], 6)

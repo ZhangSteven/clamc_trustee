@@ -361,9 +361,31 @@ def patchHtmBondRecords(records):
 
 
 
+def recordsToGroups(records):
+	"""
+	records: an iterable object for list of records.
+
+	output: an iterable object consisting of record groups, each group is a list
+		object itself, consisting records of the same position.
+	"""
+	def addToGroup(groups, record):
+		temp = [g for g in groups if g[0]['description'] == record['description']]
+		assert len(temp) < 2, 'addToGroup(): too many groups {0}'.format(len(temp))
+		if temp == []:
+			groups.append([record])	# create new group
+		elif (len(temp) == 1):
+			temp[0].append(record)	# add to existing group
+
+		return groups
+
+	return reduce(addToGroup, records, [])
+
+
+
 def groupToRecord(group):
 	"""
-	group: a list of records of the same bond.
+	group: a list object, consisting of records of the same type, i.e.,
+		htm bond, afs bond or equity. Cash is not considered.
 
 	output: a single record, consolidated from the group of records.
 	"""
@@ -406,7 +428,7 @@ def groupToRecord(group):
 	assert abs(sumUp(weights)-1) < 0.000001, 'invalid weights {0}'.format(weights)
 	record = {}
 	for (header, valueTuple) in zip(headers, valueTuples):
-		if header in ['maturity', 'coupon', 'interest start day',
+		if header in ['maturity', 'coupon', 'interest start day', 'market price',
 						'type', 'currency', 'accounting', 'description']:
 			record[header] = takeFirst(valueTuple)
 		elif header in ['average cost', 'amortized cost']:
@@ -504,50 +526,89 @@ def writeCsv(fileName, rows):
 
 
 if __name__ == '__main__':
+	from os import listdir
+	from os.path import isfile, join
+	from clamc_trustee.utility import get_current_path
 	import logging.config
 	logging.config.fileConfig('logging.config', disable_existing_loggers=False)
+
+
+
+	def HtmBondOnly(record):
+		if record['type'] == 'bond' and record['accounting'] == 'htm':
+			return True
+		return False
+
+	def cashOnly(record):
+		if record['type'] == 'cash':
+			return True
+		return False
+
+	def equityOnly(record):
+		if record['type'] == 'equity':
+			return True
+		return False
+
+	def bondOrEquity(record):
+		if record['type'] in ('bond', 'equity'):
+			return True
+		return False
+
+
 
 	def writeRecords():
 		file = 'samples/00._Portfolio_Consolidation_Report_AFBH1 1804.xls'
 		records = readFileToRecords(file)
-
-		def cashOnly(record):
-			if record['type'] == 'cash':
-				return True
-			else:
-				return False
-
 		writeCsv('cash.csv', recordsToRows(list(filter(cashOnly, records))))
-
-		def HtmBondOnly(record):
-			if record['type'] == 'bond' and record['accounting'] == 'htm':
-				return True
-			return False
-
 		writeCsv('bond.csv', recordsToRows(list(filter(HtmBondOnly, records))))
 	# end of writeRecords()
-	writeRecords()
+	# writeRecords()
+
 
 
 	def writeRecords2():
 		file = 'samples/00._Portfolio_Consolidation_Report_AFEH5 1804.xls'
 		records = readFileToRecords(file)
-
-		def cashOnly(record):
-			if record['type'] == 'cash':
-				return True
-			else:
-				return False
-
 		writeCsv('cash2.csv', recordsToRows(list(filter(cashOnly, records))))
-
-		def equityOnly(record):
-			if record['type'] == 'equity':
-				return True
-			return False
-
 		writeCsv('equity.csv', recordsToRows(list(filter(equityOnly, records))))
 	# end of writeRecords()
-	writeRecords2()
+	# writeRecords2()
+
+
+
+	def writeRecords3():
+		localDir = join(get_current_path(), 'samples')
+		fileList = [join(localDir, f) for f in listdir(localDir) \
+						if isfile(join(localDir, f))]
+		totalRecords = []
+		for file in fileList:
+			totalRecords = totalRecords + readFileToRecords(file)
+		
+		htmBonds = list(filter(HtmBondOnly, totalRecords))
+		writeCsv('bond all htm.csv', recordsToRows(htmBonds))
+	# end of writeRecords3()
+	# writeRecords3()
+
+
+
+	def writeRecords4():
+		localDir = join(get_current_path(), 'samples')
+		fileList = [join(localDir, f) for f in listdir(localDir) \
+						if isfile(join(localDir, f))]
+		totalRecords = []
+		for file in fileList:
+			totalRecords = totalRecords + readFileToRecords(file)
+		
+		holdings = filter(bondOrEquity, totalRecords)
+
+		def newRecord(record):
+			r = {}
+			for key in record:
+				if key != 'percentage of fund' and key != 'portfolio':
+					r[key] = record[key]
+
+			return r
+			
+		writeCsv('bond all htm.csv', recordsToRows(totalRecords))
 
 
