@@ -50,6 +50,7 @@ class TestHTM(unittest2.TestCase):
         first bond in USD HTM bond section,
         samples/00._Portfolio_Consolidation_Report_CGFB 1804.xls
         """
+        self.assertEqual('12630', record['portfolio'])
         self.assertEqual('US55608JAB44 Macquarie Gp L7.625%', record['description'])
         self.assertEqual('USD', record['currency'])
         self.assertEqual(1350000, record['quantity'])
@@ -69,6 +70,7 @@ class TestHTM(unittest2.TestCase):
         3rd bond in USD HTM bond section,
         samples/00._Portfolio_Consolidation_Report_CGFB 1804.xls
         """
+        self.assertEqual('2018-04-30', record['valuation date'])
         self.assertEqual('US55608KAD72', record['isin'])
         self.assertEqual('bond', record['type'])
         self.assertEqual('USD', record['currency'])
@@ -92,6 +94,7 @@ class TestHTM(unittest2.TestCase):
         first bond in HKD HTM bond section,
         samples/00._Portfolio_Consolidation_Report_AFBH1 1804.xls
         """
+        self.assertEqual('12734', record['portfolio'])
         self.assertEqual('DBANFB12014 Dragon Days Ltd 6.0%', record['description'])
         self.assertEqual('HK0000175916', record['isin'])
         self.assertEqual('HKD', record['currency'])
@@ -112,6 +115,7 @@ class TestHTM(unittest2.TestCase):
         last bond in HKD HTM bond section,
         samples/00._Portfolio_Consolidation_Report_AFBH1 1804.xls
         """
+        self.assertEqual('2018-04-30', record['valuation date'])
         self.assertEqual('XS1036272570', record['isin'])
         self.assertEqual('bond', record['type'])
         self.assertEqual('HKD', record['currency'])

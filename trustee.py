@@ -26,7 +26,7 @@ def readFileToRecords(fileName):
 		2. add portfolio info to records.
 	"""
 	sections = linesToSections(readFileToLines(fileName))
-	# valuationDate, portfolioId = fileInfo(sections[0])
+	valuationDate, portfolioId = fileInfo(sections[0])
 	totalRecords = []
 	for i in range(1, len(sections)):
 		records = sectionToRecords(sections[i])
@@ -37,7 +37,68 @@ def readFileToRecords(fileName):
 
 		totalRecords = totalRecords + records
 	
-	return totalRecords
+	def addPortfolioInfo(record):
+		record['portfolio'] = portfolioId
+		record['valuation date'] = valuationDate
+		return record
+
+	return list(map(addPortfolioInfo, totalRecords))
+
+
+
+def fileInfo(lines):
+	"""
+	lines: a list object representing lines of the first section at 
+		the beginning of the file.
+
+	output: two string objects, one for valuation date of the file
+		and the other for portfolio id.
+	"""
+	def getPortfolioId(text):
+		"""
+		text: a string containing the portfolio name
+		output: the portfolio id (string)
+		"""
+		idMap = {
+			'CLT-CLI HK BR (Class A-HK) Trust Fund  (Bond) - Par': '12229',
+			'CLT-CLI HK BR (Class A-HK) Trust Fund  (Bond)': '12734',
+			'CLT-CLI Macau BR (Class A-MC)Trust Fund (Bond)': '12366',
+			'CLT-CLI Macau BR (Class A-MC)Trust Fund (Bond) - Par': '12549',
+			'CLT-CLI HK BR (Class A-HK) Trust Fund - Par': '11490',
+			'CLI Macau BR (Fund)': '12298',
+			'CLI HK BR (Class G-HK) Trust Fund (Sub-Fund-Bond)': '12630',
+			'CLI HK BR (Class G-HK) Trust Fund': '12341'
+		}
+		portfolioName = text.split(':')[1].strip()
+		try:
+			return idMap[portfolioName]
+		except KeyError:
+			logger.error('getPortfolioId(): invalid name \'{0}\''.format(portfolioName))
+			raise
+	# end of getPortfolioId()
+
+	def getValuationDate(text):
+		"""
+		text: a string containing the portfolio valuation date
+		output: a string in 'yyyy-mm-dd' format 
+		"""
+		m = re.search('\d{2}/\d{2}/\d{4}\sto\s(\d{2}/\d{2}/\d{4})', text)
+		if (m):
+			tokens = m.group(1).split('/')
+			return '{0}-{1}-{2}'.format(tokens[2], tokens[1], tokens[0])
+		else:
+			logger.error('getValuationDate(): cannot find date from \'{0}\'') \
+							.format(text)
+			raise ValueError
+	# end of getValuationDate()
+
+	for line in lines:
+		if line[0].startswith('Fund Name'):
+			portfolioId = getPortfolioId(line[0])
+		elif line[0].startswith('Valuation Period'):
+			valuationDate = getValuationDate(line[0])
+
+	return valuationDate, portfolioId
 
 
 
