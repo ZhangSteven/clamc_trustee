@@ -6,6 +6,7 @@
 
 from xlrd import open_workbook
 from functools import reduce
+from itertools import chain
 from datetime import datetime
 import csv, re
 
@@ -20,22 +21,18 @@ def readFileToRecords(fileName):
 
 	output: a list object, containing records (dictionary object) of
 		cash and holding in this file.
-
-	To do:
-		1. read first section to retrive portfolio info.
-		2. add portfolio info to records.
 	"""
 	sections = linesToSections(readFileToLines(fileName))
 	valuationDate, portfolioId = fileInfo(sections[0])
 	totalRecords = []
 	for i in range(1, len(sections)):
-		records = sectionToRecords(sections[i])
-		if (records[0]['type'] == 'bond' and records[0]['accounting'] == 'htm'):
+		records, sectionType, accounting = sectionToRecords(sections[i])
+		if (sectionType, accounting) == ('bond', 'htm'):
 			records = patchHtmBondRecords(records)
-		if (records[0]['type'] == 'bond' or records[0]['type'] == 'equity'):
-			records = list(map(modifyDates, map(addIdentifier, records)))
+		if sectionType in ('bond', 'equity'):
+			records = map(modifyDates, map(addIdentifier, records))
 
-		totalRecords = totalRecords + records
+		totalRecords = chain(totalRecords, records)
 	
 	def addPortfolioInfo(record):
 		record['portfolio'] = portfolioId
@@ -178,7 +175,7 @@ def sectionToRecords(lines):
 	"""
 	lines: a list of lines representing the section
 
-	output: a list of position records (dictionary objects) in the section.
+	output: [iterable] position records (dictionary objects) in the section.
 	"""
 	def sectionInfo(line):
 		"""
@@ -323,12 +320,18 @@ def sectionToRecords(lines):
 	i = findHeaderRowIndex(lines)
 	headers = sectionHeaders(lines[i-2], lines[i-1], lines[i])
 
-	def addSectionInfo(record):
+	def modifyRecord(record):
 		record['type'] = sectionType
 		record['accounting'] = accounting
+		try:	# 2.5% is read in as 0.025, make it 2.5 again
+			record['percentage of fund'] = record['percentage of fund'] * 100
+		except KeyError:
+			pass
+
 		return record
 
-	return list(map(addSectionInfo, sectionRecords(headers, lines[i+1:-1])))
+	return map(modifyRecord, sectionRecords(headers, lines[i+1:-1])), \
+			sectionType, accounting
 
 
 
@@ -339,10 +342,10 @@ def patchHtmBondRecords(records):
 		description and currency fields filled, the rest have these two
 		fields empty.
 
-	output: a list of records where:
+	output: [iterable] records with:
 
-	1. All have their description and currency fields filled.
-	2. Multiple records on the same bond are consolidated into one.
+	1. description and currency fields filled.
+	2. multiple records on the same bond consolidated into one.
 	"""
 	def recordsToGroups(groups, record):
 		"""
@@ -357,28 +360,7 @@ def patchHtmBondRecords(records):
 		return groups
 	# end of recordsToGroups()
 
-	return list(map(groupToRecord, reduce(recordsToGroups, records, [])))
-
-
-
-def recordsToGroups(records):
-	"""
-	records: an iterable object for list of records.
-
-	output: an iterable object consisting of record groups, each group is a list
-		object itself, consisting records of the same position.
-	"""
-	def addToGroup(groups, record):
-		temp = [g for g in groups if g[0]['description'] == record['description']]
-		assert len(temp) < 2, 'addToGroup(): too many groups {0}'.format(len(temp))
-		if temp == []:
-			groups.append([record])	# create new group
-		elif (len(temp) == 1):
-			temp[0].append(record)	# add to existing group
-
-		return groups
-
-	return reduce(addToGroup, records, [])
+	return map(groupToRecord, reduce(recordsToGroups, records, []))
 
 
 
@@ -389,6 +371,7 @@ def groupToRecord(group):
 
 	output: a single record, consolidated from the group of records.
 	"""
+	# print(group)
 	if (len(group) == 1):
 		return group[0]
 
@@ -428,8 +411,10 @@ def groupToRecord(group):
 	assert abs(sumUp(weights)-1) < 0.000001, 'invalid weights {0}'.format(weights)
 	record = {}
 	for (header, valueTuple) in zip(headers, valueTuples):
+		# print(header)
 		if header in ['maturity', 'coupon', 'interest start day', 'market price',
-						'type', 'currency', 'accounting', 'description']:
+						'type', 'currency', 'accounting', 'description', 'isin',
+						'valuation date']:
 			record[header] = takeFirst(valueTuple)
 		elif header in ['average cost', 'amortized cost']:
 			record[header] = weightedAverage(valueTuple)
@@ -509,10 +494,10 @@ def recordsToRows(records):
 		headers.
 	"""
 	headers = list(records[0].keys())
-	def recordToValues(record):
+	def toValueList(record):
 		return [record[header] for header in headers]
 
-	return [headers] + list(map(recordToValues, records))
+	return [headers] + [toValueList(record) for record in records]
 
 
 
@@ -589,26 +574,5 @@ if __name__ == '__main__':
 	# end of writeRecords3()
 	# writeRecords3()
 
-
-
-	def writeRecords4():
-		localDir = join(get_current_path(), 'samples')
-		fileList = [join(localDir, f) for f in listdir(localDir) \
-						if isfile(join(localDir, f))]
-		totalRecords = []
-		for file in fileList:
-			totalRecords = totalRecords + readFileToRecords(file)
-		
-		holdings = filter(bondOrEquity, totalRecords)
-
-		def newRecord(record):
-			r = {}
-			for key in record:
-				if key != 'percentage of fund' and key != 'portfolio':
-					r[key] = record[key]
-
-			return r
-			
-		writeCsv('bond all htm.csv', recordsToRows(totalRecords))
 
 

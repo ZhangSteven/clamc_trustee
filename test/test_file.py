@@ -103,7 +103,7 @@ class TestHTM(unittest2.TestCase):
         self.assertAlmostEqual(2758366.47, record['total amortized cost HKD'], 2)
         self.assertAlmostEqual(14592.01, record['total amortized gain loss HKD'], 2)
         self.assertAlmostEqual(27552.15, record['FX gain loss HKD'], 2)
-        self.assertAlmostEqual(0.0025, record['percentage of fund'])
+        self.assertAlmostEqual(0.25, record['percentage of fund'])
 
 
 
@@ -148,7 +148,7 @@ class TestHTM(unittest2.TestCase):
         self.assertAlmostEqual(1815386301.38, record['total amortized cost HKD'], 2)
         self.assertAlmostEqual(0, record['total amortized gain loss HKD'])
         self.assertAlmostEqual(0, record['FX gain loss HKD'])
-        self.assertAlmostEqual(0.0262, record['percentage of fund'], 6)
+        self.assertAlmostEqual(2.62, record['percentage of fund'], 6)
 
 
 
@@ -179,4 +179,4 @@ class TestHTM(unittest2.TestCase):
     	self.assertEqual('HKD', record['currency'])
     	self.assertEqual(267580, record['total market value'])
     	self.assertEqual(-105228546.41, record['market value gain loss'], 4)
-    	self.assertEqual(0.0001, record['percentage of fund'], 6)
+    	self.assertEqual(0.01, record['percentage of fund'], 6)
