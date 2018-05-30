@@ -88,14 +88,6 @@ if __name__ == '__main__':
 
 
 
-	def testRecordsToGroups():
-		r1 = {'description': 'b1', 'quantity': 100, 'average cost': 20}
-		r2 = {'description': 'b2', 'quantity': 150, 'average cost': 60}
-		r3 = {'description': 'b1', 'quantity': 300, 'average cost': 24}
-		print(recordsToGroups([r1,r2,r3]))
-
-	# testRecordsToGroups()
-
 	def writeHtmRecords():
 		records = readFiles(join(get_current_path(), 'samples'))
 

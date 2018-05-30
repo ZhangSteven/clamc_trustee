@@ -21,13 +21,13 @@ def equityOnly(record):
 
 
 
-class TestHTM(unittest2.TestCase):
+class TestTrustee(unittest2.TestCase):
     """
     Read records from one file only.
     """
 
     def __init__(self, *args, **kwargs):
-        super(TestHTM, self).__init__(*args, **kwargs)
+        super(TestTrustee, self).__init__(*args, **kwargs)
 
 
     def testHtmBond1(self):

@@ -1,7 +1,10 @@
 # coding=utf-8
 # 
-# Read holdings from china life trustee excel files. For a sample, see 
-# samples/00._Portfolio_Consolidation_Report_AFBH1 1804
+# Read holdings from a china life trustee excel file. For a sample, see 
+# samples/00._Portfolio_Consolidation_Report_AFBH1 1804.xls
+# 
+# To read and consolidate records from multiple trustee excel files, see
+# report.py
 #
 
 from xlrd import open_workbook
@@ -542,12 +545,12 @@ if __name__ == '__main__':
 
 
 	def writeRecords():
-		file = 'samples/00._Portfolio_Consolidation_Report_AFBH1 1804.xls'
+		file = 'samples/00._Portfolio_Consolidation_Report_AFBH5 1804.xls'
 		records = readFileToRecords(file)
 		writeCsv('cash.csv', recordsToRows(list(filter(cashOnly, records))))
 		writeCsv('bond.csv', recordsToRows(list(filter(HtmBondOnly, records))))
 	# end of writeRecords()
-	# writeRecords()
+	writeRecords()
 
 
 
