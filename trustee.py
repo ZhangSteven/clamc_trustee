@@ -20,14 +20,11 @@ logger = logging.getLogger(__name__)
 
 
 
-def readFileToRecords(fileName):
+def fileToRecords(fileName):
 	"""
-	fileName: the file path to the trustee excel file.
-
-	output: a list object, containing records (dictionary object) of
-		cash and holding in this file.
+	[string] full path to a file => [list] holding records in that file.
 	"""
-	sections = linesToSections(readFileToLines(fileName))
+	sections = linesToSections(fileToLines(fileName))
 	valuationDate, portfolioId = fileInfo(sections[0])
 	totalRecords = []
 	for i in range(1, len(sections)):
@@ -50,16 +47,14 @@ def readFileToRecords(fileName):
 
 def fileInfo(lines):
 	"""
-	lines: a list object representing lines of the first section at 
-		the beginning of the file.
+	[list] lines => [string] valuation date,
+					[string] portfolio id
 
-	output: two string objects, one for valuation date of the file
-		and the other for portfolio id.
+	lines: lines of the first section at the beginning of the file.
 	"""
 	def getPortfolioId(text):
 		"""
-		text: a string containing the portfolio name
-		output: the portfolio id (string)
+		[string] text => [string] portfolio id
 		"""
 		idMap = {
 			'CLT-CLI HK BR (Class A-HK) Trust Fund  (Bond) - Par': '12229',
@@ -77,12 +72,10 @@ def fileInfo(lines):
 		except KeyError:
 			logger.error('getPortfolioId(): invalid name \'{0}\''.format(portfolioName))
 			raise
-	# end of getPortfolioId()
 
 	def getValuationDate(text):
 		"""
-		text: a string containing the portfolio valuation date
-		output: a string in 'yyyy-mm-dd' format 
+		[string] text => [string] valuation date in 'yyyy-mm-dd' format 
 		"""
 		m = re.search('\d{2}/\d{2}/\d{4}\sto\s(\d{2}/\d{2}/\d{4})', text)
 		if (m):
@@ -104,7 +97,7 @@ def fileInfo(lines):
 
 
 
-def readFileToLines(fileName):
+def fileToLines(fileName):
 	"""
 	fileName: the file path to the trustee excel file.
 	
@@ -548,17 +541,17 @@ if __name__ == '__main__':
 
 	def writeRecords():
 		file = 'samples/00._Portfolio_Consolidation_Report_AFBH5 1804.xls'
-		records = readFileToRecords(file)
+		records = fileToRecords(file)
 		writeCsv('cash.csv', recordsToRows(list(filter(cashOnly, records))))
 		writeCsv('bond.csv', recordsToRows(list(filter(HtmBondOnly, records))))
 	# end of writeRecords()
-	writeRecords()
+	# writeRecords()
 
 
 
 	def writeRecords2():
 		file = 'samples/00._Portfolio_Consolidation_Report_AFEH5 1804.xls'
-		records = readFileToRecords(file)
+		records = fileToRecords(file)
 		writeCsv('cash2.csv', recordsToRows(list(filter(cashOnly, records))))
 		writeCsv('equity.csv', recordsToRows(list(filter(equityOnly, records))))
 	# end of writeRecords()
@@ -570,14 +563,11 @@ if __name__ == '__main__':
 		localDir = join(get_current_path(), 'samples')
 		fileList = [join(localDir, f) for f in listdir(localDir) \
 						if isfile(join(localDir, f))]
-		totalRecords = []
-		for file in fileList:
-			totalRecords = totalRecords + readFileToRecords(file)
-		
+		totalRecords = reduce(lambda x,y: x+y, map(fileToRecords, fileList), [])
 		htmBonds = list(filter(HtmBondOnly, totalRecords))
 		writeCsv('bond all htm.csv', recordsToRows(htmBonds))
 	# end of writeRecords3()
-	# writeRecords3()
+	writeRecords3()
 
 
 

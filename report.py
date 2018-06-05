@@ -4,9 +4,10 @@
 # we need.
 #
 
-from clamc_trustee.trustee import readFileToRecords, groupToRecord, \
+from clamc_trustee.trustee import fileToRecords, groupToRecord, \
 									writeCsv, recordsToRows
 from functools import reduce
+from os.path import join
 import logging
 logger = logging.getLogger(__name__)
 
@@ -37,20 +38,6 @@ def consolidateRecords(records):
 
 
 
-def readFiles(folder):
-	"""
-	[string] folder => [list] records
-
-	Read all the files in a folder and return a list of records from 
-	those files.
-	"""
-	from os import listdir
-	from os.path import isfile, join
-	fileList = [join(folder, f) for f in listdir(folder) if isfile(join(folder, f))]
-	return reduce(lambda x,y: x+y, map(readFileToRecords, fileList), [])
-
-
-
 def recordsToGroups(records):
 	"""
 	[iterable] records => [list] groups
@@ -73,28 +60,63 @@ def recordsToGroups(records):
 
 
 
+def readFiles(folder):
+	"""
+	[string] folder => [list] records
+
+	Read all the files in a folder and return a list of records from 
+	those files.
+	"""
+	return reduce(lambda x,y: x+y, map(fileToRecords, getExcelFiles(folder)), [])
+
+
+
+def getExcelFiles(folder):
+	"""
+	[string] folder => [list] excel files in folder
+	"""
+	from os import listdir
+	from os.path import isfile
+
+	def isExcelFile(file):
+		"""
+		[string] file name (without path) => [Bool] is it an Excel file?
+		"""
+		return file.split('.')[-1] in ('xls', 'xlsx')
+
+	return [join(folder, f) for f in listdir(folder) \
+			if isfile(join(folder, f)) and isExcelFile(f)]
+
+
+
+def htmBond(record):
+	if record['type'] == 'bond' and record['accounting'] == 'htm':
+		return True
+	return False
+
+
+
 def writeHtmRecords(folder):
 	"""
-	Read files under folder and write the consolidated report for all
-	HTM bonds in those files into a csv
-	"""
-	def htmBond(record):
-		if record['type'] == 'bond' and record['accounting'] == 'htm':
-			return True
-		return False
+	(string) folder => (string) full path to csv file
+	side effect: create a csv file in that folder.
 
-	records = readFiles(folder)
-	records = list(consolidateRecords(filter(htmBond, records)))
-	writeCsv('htm bond consolidated.csv', recordsToRows(records))
+	Read files in folder and write a consolidated report for all
+	HTM bonds from those files into a csv.
+	"""
+	records = list(consolidateRecords(filter(htmBond, readFiles(folder))))
+	csvFile = join(folder, 'htm bond consolidated.csv')
+	writeCsv(csvFile, recordsToRows(records))
+	return csvFile
 
 
 
 if __name__ == '__main__':
-	from os.path import join
 	from clamc_trustee.utility import get_current_path
 	import logging.config
 	logging.config.fileConfig('logging.config', disable_existing_loggers=False)
 
-	writeHtmRecords(join(get_current_path(), 'samples'))
+	# Put trustee reports in 'trustee_reports' folder then run this
+	writeHtmRecords(join(get_current_path(), 'trustee_reports'))
 
 

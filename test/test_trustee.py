@@ -3,7 +3,7 @@
 
 import unittest2, os
 from clamc_trustee.utility import get_current_path
-from clamc_trustee.trustee import readFileToRecords
+from clamc_trustee.trustee import fileToRecords
 
 
 
@@ -33,7 +33,7 @@ class TestTrustee(unittest2.TestCase):
     def testHtmBond1(self):
         file = os.path.join(get_current_path(), 'samples', 
                     '00._Portfolio_Consolidation_Report_CGFB 1804.xls')
-        records = readFileToRecords(file)
+        records = fileToRecords(file)
         records = list(filter(htmBond, records))
         self.assertEqual(len(records), 20)
         self.verifyBond1(records[2])
@@ -44,7 +44,7 @@ class TestTrustee(unittest2.TestCase):
     def testHtmBond2(self):
         file = os.path.join(get_current_path(), 'samples', 
                     '00._Portfolio_Consolidation_Report_AFBH1 1804.xls')
-        records = readFileToRecords(file)
+        records = fileToRecords(file)
         records = list(filter(htmBond, records))
         self.assertEqual(len(records), 70)
         self.verifyBond3(records[1])
@@ -55,7 +55,7 @@ class TestTrustee(unittest2.TestCase):
     def testEquity(self):
         file = os.path.join(get_current_path(), 'samples', 
                     '00._Portfolio_Consolidation_Report_AFEH5 1804.xls')
-        records = readFileToRecords(file)
+        records = fileToRecords(file)
         records = list(filter(equityOnly, records))
         self.assertEqual(len(records), 35)
         self.verifyEquity1(records[0])
