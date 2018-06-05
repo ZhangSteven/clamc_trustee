@@ -98,8 +98,8 @@ def htmBond(record):
 
 def writeHtmRecords(folder):
 	"""
-	(string) folder => (string) full path to csv file
-	side effect: create a csv file in that folder.
+	(string) folder => (string) full path to a csv file
+	side effect: create the csv file in that folder.
 
 	Read files in folder and write a consolidated report for all
 	HTM bonds from those files into a csv.
@@ -111,12 +111,53 @@ def writeHtmRecords(folder):
 
 
 
+def writeTSCF(folder):
+	"""
+	(string) folder => (string) full path to a csv file
+	side effect: create the csv file in that folder.
+
+	Read files in folder and write a TSCF upload file ready to be uploaded
+	to Bloomberg AIM to mark HTM bond amortized cost for all CLO
+	portfolios.
+
+	A TSCF upload file looks like below:
+
+	Upload Method,INCREMENTAL,,,,
+	Field Id,Security Id Type,Security Id,Account Code,Numeric Value,Char Value
+	CD012,4,HK0000171949,12229,100,100
+	CD012,4,XS1556937891,12734,98.89,98.89
+	...
+
+	"""
+	def onePortfolio(record):
+		if record['portfolio'] == '12630':
+			return True
+		return False
+
+	def toTSCFRow(record):
+		"""
+		[dictionary] record => [list] items in a row of the TSCF file 
+		"""
+		return ['CD012', 4, record['isin'], record['portfolio'], 
+					record['amortized cost'], record['amortized cost']]
+
+	records = filter(htmBond, readFiles(folder))
+	csvFile = join(folder, 'f3321tscf.htm.inc')
+	writeCsv(csvFile, [['Upload Method', 'INCREMENTAL', '', '', '', ''],
+				['Field Id', 'Security Id Type', 'Security Id', 'Account Code',
+					'Numeric Value', 'Char Value']] + \
+					list(map(toTSCFRow, filter(onePortfolio, records))))
+	return csvFile
+
+
+
 if __name__ == '__main__':
 	from clamc_trustee.utility import get_current_path
 	import logging.config
 	logging.config.fileConfig('logging.config', disable_existing_loggers=False)
 
 	# Put trustee reports in 'trustee_reports' folder then run this
-	writeHtmRecords(join(get_current_path(), 'trustee_reports'))
+	# writeHtmRecords(join(get_current_path(), 'trustee_reports'))
+	writeTSCF(join(get_current_path(), 'trustee_reports'))
 
 
