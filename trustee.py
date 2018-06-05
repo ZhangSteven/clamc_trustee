@@ -1,6 +1,8 @@
 # coding=utf-8
 # 
-# Read holdings from a china life trustee excel file. For a sample, see 
+# Read holdings from a china life trustee excel file for CLO portfolios. 
+# 
+# For a sample, see 
 # samples/00._Portfolio_Consolidation_Report_AFBH1 1804.xls
 # 
 # To read and consolidate records from multiple trustee excel files, see

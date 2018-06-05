@@ -1,6 +1,6 @@
 # coding=utf-8
 # 
-# Read holdings from china life trustee excel files, then generate report
+# Use records from china life trustee excel files to generate report
 # we need.
 #
 
@@ -14,56 +14,50 @@ logger = logging.getLogger(__name__)
 
 def consolidateRecords(records):
 	"""
-	records: [iterable] a list of records of the same type, i.e.,
-		htm bond, afs bond or equity. Cash is not supported.
+	records => records
 
-	output: [iterable] a new list of consolidated records, where
-		multiple records of the same security are consolidated into
-		one. Note that when we do consolidation, the 'portfolio' and
-		'percentage of fund' fields will be removed because these
-		two fields cannot be consolidated.
-
-		The passed in list of records stay untouched.
+	Consolidate records from muotiple portfolios, so that records of the 
+	same security are combined into one record.
 	"""
-	def removeFields(record):
+	def toNewRecords(record):
+		"""
+		record => new record
+
+		Duplicate all entries, except the 'portfolio' and 'percentage of 
+		fund' fields because they don't make sense in a consolidated record.
+		"""
 		r = {}
 		for key in record:
-			if key != 'percentage of fund' and key != 'portfolio':
+			if not key in ('percentage of fund', 'portfolio'):
 				r[key] = record[key]
-
 		return r
-	# end of removeFields
+	# end of toNewRecords()
 
-	return map(groupToRecord, recordsToGroups(map(removeFields, records)))
+	return map(groupToRecord, recordsToGroups(map(toNewRecords, records)))
 
 
 
 def readFiles(folder):
 	"""
-	folder: a folder containing trustee files.
+	[string] folder => [list] records
 
-	output: [list] a list of records from all the files.
+	Read all the files in a folder and return a list of records from 
+	those files.
 	"""
 	from os import listdir
 	from os.path import isfile, join
-	fileList = [join(folder, f) for f in listdir(folder) \
-						if isfile(join(folder, f))]
-	totalRecords = []
-	for file in fileList:
-		totalRecords = totalRecords + readFileToRecords(file)
-
-	return totalRecords
+	fileList = [join(folder, f) for f in listdir(folder) if isfile(join(folder, f))]
+	return reduce(lambda x,y: x+y, map(readFileToRecords, fileList), [])
 
 
 
 def recordsToGroups(records):
 	"""
-	records: [iterable] a list of records for securites of the same type,
-		e.g., htm bonds, afs bonds, equities. Cash is not supposed to be
-		used here.
+	[iterable] records => [list] groups
 
-	output:  [iterable] a list of record groups, where each group is a list
-		object consisting records of the same security.
+	Group a list of records into a list of sub groups, based on the record's
+	description. Records with the same description are put into one sub
+	group.
 	"""
 	def addToGroup(groups, record):
 		temp = [g for g in groups if g[0]['description'] == record['description']]
@@ -79,26 +73,28 @@ def recordsToGroups(records):
 
 
 
+def writeHtmRecords(folder):
+	"""
+	Read files under folder and write the consolidated report for all
+	HTM bonds in those files into a csv
+	"""
+	def htmBond(record):
+		if record['type'] == 'bond' and record['accounting'] == 'htm':
+			return True
+		return False
+
+	records = readFiles(folder)
+	records = list(consolidateRecords(filter(htmBond, records)))
+	writeCsv('htm bond consolidated.csv', recordsToRows(records))
+
+
+
 if __name__ == '__main__':
-	from os import listdir
-	from os.path import isfile, join
+	from os.path import join
 	from clamc_trustee.utility import get_current_path
 	import logging.config
 	logging.config.fileConfig('logging.config', disable_existing_loggers=False)
 
-
-
-	def writeHtmRecords():
-		records = readFiles(join(get_current_path(), 'samples'))
-
-		def htmBond(record):
-			if record['type'] == 'bond' and record['accounting'] == 'htm':
-				return True
-			return False
-
-		records = list(consolidateRecords(filter(htmBond, records)))
-		writeCsv('bond htm consolidated.csv', recordsToRows(records))
-	# end of writeHtmRecords()
-	writeHtmRecords()
+	writeHtmRecords(join(get_current_path(), 'samples'))
 
 

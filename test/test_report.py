@@ -25,6 +25,9 @@ class TestReport(unittest2.TestCase):
 
 
     def test1(self):
+        """
+        Test consolidated records
+        """
         records = readFiles(join(get_current_path(), 'samples', 'testfolder'))
         records = list(consolidateRecords(filter(htmBond, records)))
         self.assertEqual(len(records), 93)
@@ -35,9 +38,8 @@ class TestReport(unittest2.TestCase):
 
     def verifyBond1(self, records):
         """
-        bond DBANFB12014 Dragon Days Ltd 6.0%, from consolidated
-        HTM bond records of 12229 and 12734. The bond exists in
-        both portfolios.
+        DBANFB12014 Dragon Days Ltd 6.0%, the bond exists in both 
+        portfolio 12229 and 12734. 
         """
         self.assertEqual(len(records), 1)   # there should be only one
         record = records[0]
