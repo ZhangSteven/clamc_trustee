@@ -129,11 +129,6 @@ def writeTSCF(folder):
 	...
 
 	"""
-	def onePortfolio(record):
-		if record['portfolio'] == '12630':
-			return True
-		return False
-
 	def toTSCFRow(record):
 		"""
 		[dictionary] record => [list] items in a row of the TSCF file 
@@ -141,12 +136,12 @@ def writeTSCF(folder):
 		return ['CD012', 4, record['isin'], record['portfolio'], 
 					record['amortized cost'], record['amortized cost']]
 
-	records = filter(htmBond, readFiles(folder))
-	csvFile = join(folder, 'f3321tscf.htm.inc')
+	records = readFiles(folder)
+	csvFile = join(folder, 'f3321tscf.htm.' + records[0]['valuation date'] + '.inc')
 	writeCsv(csvFile, [['Upload Method', 'INCREMENTAL', '', '', '', ''],
 				['Field Id', 'Security Id Type', 'Security Id', 'Account Code',
-					'Numeric Value', 'Char Value']] + \
-					list(map(toTSCFRow, filter(onePortfolio, records))))
+				'Numeric Value', 'Char Value']] + \
+				list(map(toTSCFRow, filter(htmBond, records))))
 	return csvFile
 
 
@@ -156,8 +151,10 @@ if __name__ == '__main__':
 	import logging.config
 	logging.config.fileConfig('logging.config', disable_existing_loggers=False)
 
-	# Put trustee reports in 'trustee_reports' folder then run this
+	# Get a report on consolidated HTM holdings from all trustee files.
 	# writeHtmRecords(join(get_current_path(), 'trustee_reports'))
+
+	# Get a TSCF upload file for HTM positions in all trustee files.
 	writeTSCF(join(get_current_path(), 'trustee_reports'))
 
 
