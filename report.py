@@ -99,10 +99,10 @@ def htmBond(record):
 def writeHtmRecords(folder):
 	"""
 	(string) folder => (string) full path to a csv file
-	side effect: create the csv file in that folder.
+	side effect: create a csv file in that folder.
 
-	Read files in folder and write a consolidated report for all
-	HTM bonds from those files into a csv.
+	Read files in folder and write a consolidated report for all HTM bonds 
+	from those files into a csv.
 	"""
 	records = list(consolidateRecords(filter(htmBond, readFiles(folder))))
 	csvFile = join(folder, 'htm bond consolidated.csv')
@@ -114,7 +114,7 @@ def writeHtmRecords(folder):
 def writeTSCF(folder):
 	"""
 	(string) folder => (string) full path to a csv file
-	side effect: create the csv file in that folder.
+	side effect: create a csv file in that folder.
 
 	Read files in folder and write a TSCF upload file ready to be uploaded
 	to Bloomberg AIM to mark HTM bond amortized cost for all CLO
@@ -155,6 +155,7 @@ if __name__ == '__main__':
 	# writeHtmRecords(join(get_current_path(), 'trustee_reports'))
 
 	# Get a TSCF upload file for HTM positions in all trustee files.
+	# Make sure the trustee reports are for the same valuation day.
 	writeTSCF(join(get_current_path(), 'trustee_reports'))
 
 

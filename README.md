@@ -8,12 +8,13 @@ report.py: use the records from trustee.py to generate reports we need.
 
 
 
-To do:
-1. Convert trustee reports to Bloomberg AIM upload file for HTM bond.
-
++++++++++++++++++++
+ver 0.11 @ 2018-6-6
++++++++++++++++++++
+1. Convert trustee reports to TSCF upload file for all HTM positions, ready to be uploaded to Bloomberg AIM.
 
 
 +++++++++++++++++++
 ver 0.1 @ 2018-6-5
 +++++++++++++++++++
-1. Can convert trustee reports (Excel files) to a consolidated HTM bond csv.
+1. Convert trustee reports (Excel files) to a consolidated HTM bond csv.
