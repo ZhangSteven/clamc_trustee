@@ -21,14 +21,15 @@
 # ...
 
 from xlrd import open_workbook
-from itertools import takewhile, chain
+from itertools import takewhile, chain, filterfalse
 from functools import reduce, partial
 import re
 from os.path import join
 from collections import namedtuple
-from utils.iter import pop
+from utils.iter import pop, firstOf
 from utils.excel import worksheetToLines
 from clamc_datafeed import feeder
+from clamc_trustee.report import getExcelFiles
 import logging
 logger = logging.getLogger(__name__)
 
@@ -131,24 +132,53 @@ def fileToLines(file):
 
 
 
+def fileToTSCF(data, file):
+	"""
+	[Dictionary] data, [String] file => [Iterable] TSCF rows
+
+	data: a dictionary mapping a bond to its purchase cost and yield at cost
+	file: a Geneva tax lot appraisal report (Excel)	
+	"""
+	print('fileToTSCF(): working on {0}'.format(file))
+
+	buildList = lambda L: chain.from_iterable(reduce(chain, L, []))
+	return buildList(map(partial(tscfRows, data)
+						, bonds(fileToLines(file))))
+
+
+
+def folderToTSCF(folder):
+	"""
+	[String] folder => [Iterable] TSCF rows
+
+	folder: a folder containing the historical data file and all the Geneva
+		tax lot appraisal report files (Excel).
+	"""
+	isHistoricalDataFile = lambda f: f.split('\\')[-1].startswith('CLO Holdings')
+	dataFile = firstOf(isHistoricalDataFile, getExcelFiles(folder))
+	if (dataFile == None):
+		print('folderToTSCF(): data file not found')
+		raise ValueError
+	else:
+		print('folderToTSCF(): data file: {0}'.format(dataFile))
+
+	historicalData = toDictionary(getRawPositions(fileToLines(dataFile)))
+
+	glueTogether = lambda L: reduce(chain, L, [])
+	return glueTogether(map(partial(fileToTSCF, historicalData)
+						   , filterfalse(isHistoricalDataFile
+						   				, getExcelFiles(folder))))
+
+
 
 if __name__ == '__main__':
 	from clamc_trustee.utility import get_current_path
 	import logging.config
 	logging.config.fileConfig('logging.config', disable_existing_loggers=False)
 
-	historicalData = toDictionary(
-						getRawPositions(
-							fileToLines(
-								join('samples'
-									, 'CLO Holdings 2019.06.28.xlsx'))))
 
-	# print(historicalData)
-	bb = bonds(fileToLines(join('samples', '12229 tax lot 201906.xlsx')))
-
-
-	buildList = lambda L: chain.from_iterable(reduce(chain, L, []))
-	for x in buildList(map(partial(tscfRows, historicalData)
-						  , bb)):
-		print(x)
+	result = folderToTSCF('samples hcost')
+	for x in result:
+		# print(x)
+		pass
 
