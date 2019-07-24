@@ -184,7 +184,7 @@ def writeTSCF(folder):
 			   	 , 'Account Code', 'Numeric Value', 'Char Value']
 			   ]
 
-	writeCsv(join(folder, 'f3321tscf.htm.' + datetime.now().strftime('%Y%m%d') + '.inc')
+	writeCsv(join(folder, 'f3321tscf.historical.' + datetime.now().strftime('%Y%m%d') + '.inc')
 			, chain(headRows, folderToTSCF(folder)))
 
 
