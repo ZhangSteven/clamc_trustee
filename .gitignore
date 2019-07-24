@@ -9,3 +9,4 @@ logs/*.log
 
 # trustee reports
 trustee_reports/
+trustee_historical/
