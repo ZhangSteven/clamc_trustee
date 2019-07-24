@@ -194,4 +194,26 @@ if __name__ == '__main__':
 	import logging.config
 	logging.config.fileConfig('logging.config', disable_existing_loggers=False)
 
+	"""
+	Create a TSCF upload file to upload two data fields for bond positions in
+	CLO bond portfolios on Bloomberg AIM.
+
+	To complete this task, we need:
+
+	(1) Obtain the data file that contains the purchase cost and yield at
+		cost for all the bond positions. This file should have its file
+		name starting with "CLO Holdings", and 3 columns named as
+		"ISIN", "Purchase Cost" and "Yield at Cost".
+
+	(2) Geneva tax lot appraisal reports (Excel format) for all the CLO
+		bond portfolios (12229, 12366, 12549, 12630 and 12734). The program
+		does not check which portfolios are there, it simply grabs all the
+		tax lot appraisal reports in the folder and generate upload file
+		for them.
+
+	(3) Save all the above files into the folder "trustee_historical".
+
+	For a sample of the files, see "samples\test_historical".
+
+	"""
 	writeTSCF('trustee_historical')

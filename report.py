@@ -151,11 +151,12 @@ if __name__ == '__main__':
 	import logging.config
 	logging.config.fileConfig('logging.config', disable_existing_loggers=False)
 
-	# Get a report on consolidated HTM holdings from all trustee files.
-	# writeHtmRecords(join(get_current_path(), 'trustee_reports'))
-
-	# Get a TSCF upload file for HTM positions in all trustee files.
-	# Make sure the trustee reports are for the same valuation day.
+	"""
+	Create a TSCF upload file for HTM positions in all trustee files.
+	
+	Make sure the trustee reports are for the same valuation day and save
+	them into the folder "trustee_reports"
+	"""
 	writeTSCF(join(get_current_path(), 'trustee_reports'))
 
 
