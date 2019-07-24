@@ -21,8 +21,8 @@
 # ...
 
 from xlrd import open_workbook
-from itertools import takewhile
-from functools import reduce
+from itertools import takewhile, chain
+from functools import reduce, partial
 import re
 from os.path import join
 from collections import namedtuple
@@ -73,10 +73,10 @@ def toDictionary(positions):
 
 def bonds(lines):
 	"""
-	[Iterable] lines => [Iterable] bonds
+	[Iterable] lines => [Iterable] bond entries
 
 	lines: lines from a Geneva tax lot appraisal report.
-	bonds: a list of tuples representing bond holdings in that report, like
+	bond entries: a list of tuples representing bond holdings, like
 	('12229', 'XS1234567890')
 	"""
 	isinFromId = lambda id: id.split()[0]
@@ -84,6 +84,50 @@ def bonds(lines):
 	return set(map(bondEntry
 				  , filter(feeder.isBond
 				  		  , feeder.getPositions(lines))))
+
+
+
+def tscfRows(data, bondEntry):
+	"""
+	[Dictionary] data, [Tuple] Bond entry => [List] TSCF Rows
+
+	data: a dictionary mapping a bond to its purchase cost and yield at cost
+
+	A TSCF upload row consists of 4 elements, i.e.,
+
+	Field Id,Security Id Type,Security Id,Account Code,Numeric Value,Char Value
+	
+	Since we are uploading two values per bond entry, i.e., purchase cost 
+	(CD022) and yield at cost (CD021), then the return value will a list of
+	2 lines (each being a list itself) for a bond entry like
+	('12229', 'HK0000171949'), such as:
+
+	CD022,4,HK0000171949,12229,98.89,98.89
+	CD021,4,HK0000171949,12229,6.535,6.535
+	
+	If the bond is not found in 'data', then return value will be an empty
+	list []. At the same time, it will print out a warning message.
+	"""
+	portfolio, isin = bondEntry
+	try:
+		value = data[isin]
+		return [ 
+				 ['CD022', '4', isin, portfolio, value.purchase_cost, value.purchase_cost]
+			   , ['CD021', '4', isin, portfolio, value.yield_at_cost, value.yield_at_cost]
+			   ]
+	except KeyError:
+		print('{0} not found in historical data'.format(bondEntry))
+		return []
+
+
+
+def fileToLines(file):
+	"""
+	[String] file => [Iterable] lines
+
+	Read the first sheet of an Excel file and convert its rows to lines
+	"""
+	return worksheetToLines(open_workbook(file).sheet_by_index(0))
 
 
 
@@ -95,18 +139,16 @@ if __name__ == '__main__':
 
 	historicalData = toDictionary(
 						getRawPositions(
-							worksheetToLines(
-								open_workbook(
-									join('samples'
-										, 'CLO Holdings 2019.06.28.xlsx')
-								).sheet_by_index(0))))
+							fileToLines(
+								join('samples'
+									, 'CLO Holdings 2019.06.28.xlsx'))))
 
 	# print(historicalData)
-	bb = bonds(worksheetToLines(
-					open_workbook(
-						join('samples'
-							, '12229 tax lot 201906.xlsx')
-					).sheet_by_index(0)))
-	for b in bb:
-		print(b)
+	bb = bonds(fileToLines(join('samples', '12229 tax lot 201906.xlsx')))
+
+
+	buildList = lambda L: chain.from_iterable(reduce(chain, L, []))
+	for x in buildList(map(partial(tscfRows, historicalData)
+						  , bb)):
+		print(x)
 
