@@ -25,9 +25,11 @@ from itertools import takewhile, chain, filterfalse
 from functools import reduce, partial
 import re
 from os.path import join
+from datetime import datetime
 from collections import namedtuple
 from utils.iter import pop, firstOf
 from utils.excel import worksheetToLines
+from utils.utility import writeCsv
 from clamc_datafeed import feeder
 from clamc_trustee.report import getExcelFiles
 import logging
@@ -141,9 +143,9 @@ def fileToTSCF(data, file):
 	"""
 	print('fileToTSCF(): working on {0}'.format(file))
 
-	buildList = lambda L: chain.from_iterable(reduce(chain, L, []))
-	return buildList(map(partial(tscfRows, data)
-						, bonds(fileToLines(file))))
+	glueTogether = lambda L: reduce(chain, L, [])
+	return glueTogether(map(partial(tscfRows, data)
+						   , bonds(fileToLines(file))))
 
 
 
@@ -171,14 +173,25 @@ def folderToTSCF(folder):
 
 
 
+
+def writeTSCF(folder):
+	"""
+	[String] folder => write an output csv in the folder.
+	"""
+	headRows = [
+				 ['Upload Method', 'INCREMENTAL', '', '', '', '']
+			   , [ 'Field Id', 'Security Id Type', 'Security Id'
+			   	 , 'Account Code', 'Numeric Value', 'Char Value']
+			   ]
+
+	writeCsv(join(folder, 'f3321tscf.htm.' + datetime.now().strftime('%Y%m%d') + '.inc')
+			, chain(headRows, folderToTSCF(folder)))
+
+
+
 if __name__ == '__main__':
 	from clamc_trustee.utility import get_current_path
 	import logging.config
 	logging.config.fileConfig('logging.config', disable_existing_loggers=False)
 
-
-	result = folderToTSCF('samples hcost')
-	for x in result:
-		# print(x)
-		pass
-
+	writeTSCF('samples hcost')
