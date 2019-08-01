@@ -24,6 +24,7 @@ def fileToRecords(fileName):
 	"""
 	[string] full path to a file => [list] holding records in that file.
 	"""
+	logger.info('fileToRecords(): {0}'.format(fileName))
 	sections = linesToSections(fileToLines(fileName))
 	valuationDate, portfolioId = fileInfo(sections[0])
 	totalRecords = []
