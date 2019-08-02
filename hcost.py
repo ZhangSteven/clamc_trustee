@@ -86,7 +86,7 @@ def bonds(lines):
 	bondEntry = lambda p: (p['Portfolio'], isinFromId(p['InvestID']))
 	return set(map(bondEntry
 				  , filter(feeder.isBond
-				  		  , feeder.getPositions(lines))))
+				  		  , feeder.getPositionsFromTaxlots(lines))))
 
 
 
