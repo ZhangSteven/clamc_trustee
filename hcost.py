@@ -84,9 +84,11 @@ def bonds(lines):
 	"""
 	isinFromId = lambda id: id.split()[0]
 	bondEntry = lambda p: (p['Portfolio'], isinFromId(p['InvestID']))
+	secondTupleElement = lambda t: t[1]
 	return set(map(bondEntry
 				  , filter(feeder.isBond
-				  		  , feeder.getPositionsFromTaxlots(lines))))
+				  		  , secondTupleElement(
+				  		  		feeder.getPositionsFromTaxlots(lines)))))
 
 
 
