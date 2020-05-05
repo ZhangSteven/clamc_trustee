@@ -1,4 +1,8 @@
-﻿This package reads china life trustee's files for CLO portfolios. These files usually arrive in a monthly basis, containing amortized cost for HTM bond positions. We can use them to generate reports for fixed income team and create upload files for Bloomberg AIM.
+﻿NO longer used.
+
+Use the trustee_report package to generate TSCF upload instead. 2020-05-05
+
+This package reads china life trustee's files for CLO portfolios. These files usually arrive in a monthly basis, containing amortized cost for HTM bond positions. We can use them to generate reports for fixed income team and create upload files for Bloomberg AIM.
 
 The package contains two modules:
 
